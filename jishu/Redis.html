@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Redis：1. 缓存穿透浏览器向服务器发送一个请求如：  服务器首先会查找redis，如果命中了就返回给客户端，如果没有查找到就再找寻数据库，把结果再返回给客户端  若我知道了你服务器的请求路径，疯狂像你的服务器发送请求，服务器疯狂查找redis，当然redis中永远都找不到，所以总是会去再查数据库，相当于穿透了redis直接查找数据库。这服务器肯定扛不住啊，一下就寄了。 1.1 解决：空值存储">
+<meta property="og:type" content="website">
+<meta property="og:title" content="邓鑫的杂记">
+<meta property="og:url" content="http://example.com/jishu/Redis.html">
+<meta property="og:site_name" content="邓鑫的杂记">
+<meta property="og:description" content="Redis：1. 缓存穿透浏览器向服务器发送一个请求如：  服务器首先会查找redis，如果命中了就返回给客户端，如果没有查找到就再找寻数据库，把结果再返回给客户端  若我知道了你服务器的请求路径，疯狂像你的服务器发送请求，服务器疯狂查找redis，当然redis中永远都找不到，所以总是会去再查数据库，相当于穿透了redis直接查找数据库。这服务器肯定扛不住啊，一下就寄了。 1.1 解决：空值存储">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513012437995.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513012543234.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513013527264.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513013958253.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513014613175.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513014638993.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513014710738.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230513015331102.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515222940788.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515223525299.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515223739227.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515224010005.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515224138894.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515224325621.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230515224341541.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421144122561.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421144451309.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421144756353.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421145019790.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421144905039.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421145103755.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421145424209.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421151135397.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421152408665.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421152528897.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421152740363.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421152914985.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421152953076.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421175606609.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421175834140.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421175858027.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180015636.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180125453.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180152792.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180229510.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180344103.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180406452.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180436256.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421180835122.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421181511905.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230421182501016.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422003842985.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422003911810.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422003936031.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422003955076.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422014126204.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422014443833.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422014529635.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422014824451.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422014937930.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015046109.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015125659.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015243328.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015337983.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015501418.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015541179.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015608398.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230422015901782.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423160300104.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423161902819.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423161523762.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423162935538.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423163005686.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423163459036.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423163447761.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423163937131.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423231746710.png">
+<meta property="og:image" content="http://example.com/typora-user-images%5Cimage-20230423231908651.png">
+<meta property="article:published_time" content="2023-09-16T17:10:19.464Z">
+<meta property="article:modified_time" content="2023-05-15T17:10:52.394Z">
+<meta property="article:author" content="邓鑫">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/typora-user-images%5Cimage-20230513012437995.png">
+
+<link rel="canonical" href="http://example.com/jishu/Redis">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : false,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title> | 邓鑫的杂记
+</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">邓鑫的杂记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-jishu">
+
+    <a href="/jishu/" rel="section"><i class="fa fa-tags fa-fw"></i>技术杂记</a>
+
+  </li>
+        <li class="menu-item menu-item-life">
+
+    <a href="/life/" rel="section"><i class="fa fa-tags fa-fw"></i>感悟杂记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+  
+  
+
+          <div class="content page posts-expand">
+            
+
+    
+    
+    
+    <div class="post-block" lang="zh-CN">
+      <header class="post-header">
+
+<h1 class="post-title" itemprop="name headline">
+</h1>
+
+<div class="post-meta">
+  
+
+</div>
+
+</header>
+
+      
+      
+      
+      <div class="post-body">
+          <h1 id="Redis："><a href="#Redis：" class="headerlink" title="Redis："></a>Redis：</h1><h2 id="1-缓存穿透"><a href="#1-缓存穿透" class="headerlink" title="1. 缓存穿透"></a>1. 缓存穿透</h2><p>浏览器向服务器发送一个请求如：</p>
+<p><img src="/typora-user-images%5Cimage-20230513012437995.png" alt="image-20230513012437995"></p>
+<p>服务器首先会查找redis，如果命中了就返回给客户端，如果没有查找到就再找寻数据库，把结果再返回给客户端</p>
+<p><img src="/typora-user-images%5Cimage-20230513012543234.png" alt="image-20230513012543234"></p>
+<p>若我知道了你服务器的请求路径，疯狂像你的服务器发送请求，服务器疯狂查找redis，当然redis中永远都找不到，所以总是会去再查数据库，相当于穿透了redis直接查找数据库。这服务器肯定扛不住啊，一下就寄了。</p>
+<h4 id="1-1-解决：空值存储"><a href="#1-1-解决：空值存储" class="headerlink" title="1.1 解决：空值存储"></a>1.1 解决：空值存储</h4><p>当有人查找一个不存在的数据时，数据库查找的结果为空，服务器仍把空值存入redis中，下次再访问时会直接从redis中返回空值</p>
+<p><img src="/typora-user-images%5Cimage-20230513013527264.png" alt="image-20230513013527264"></p>
+<p>优点：简单好用</p>
+<p>缺点：消耗内存，如果数据库突然有数据了，缓存的还是之前的空值，可能发送数据不一致的问题</p>
+<h4 id="1-2-解决：布隆过滤器"><a href="#1-2-解决：布隆过滤器" class="headerlink" title="1.2 解决：布隆过滤器"></a>1.2 解决：布隆过滤器</h4><p>缓存预热时，也给布隆过滤器也预热（预热就是把一些热点的数据先部署上去）</p>
+<p>客户端请求先会经过过滤器，若过滤器不存在就直接返回，若存在就去查找redis</p>
+<p><img src="/typora-user-images%5Cimage-20230513013958253.png" alt="image-20230513013958253"></p>
+<p>布隆过滤器依赖于位图</p>
+<p><img src="/typora-user-images%5Cimage-20230513014613175.png" alt="image-20230513014613175"></p>
+<p><img src="/typora-user-images%5Cimage-20230513014638993.png" alt="image-20230513014638993"></p>
+<p>如果id3访问布隆过滤器时发现它三次hash对应的值都为1，这个时候就会误判，会以为数据存在</p>
+<p><img src="/typora-user-images%5Cimage-20230513014710738.png" alt="image-20230513014710738"></p>
+<p><img src="/typora-user-images%5Cimage-20230513015331102.png" alt="image-20230513015331102"></p>
+<p>优点： 内存占用少</p>
+<p>缺点：实现负载，存在误判</p>
+<h2 id="2-缓存击穿"><a href="#2-缓存击穿" class="headerlink" title="2.缓存击穿"></a>2.缓存击穿</h2><p>一个热点的Key突然过期了，大量的请求直接打到数据库中，瞬间把数据库压垮</p>
+<p><img src="/typora-user-images%5Cimage-20230515222940788.png" alt="image-20230515222940788"></p>
+<h4 id="2-1-解决：互斥锁："><a href="#2-1-解决：互斥锁：" class="headerlink" title="2.1 解决：互斥锁："></a>2.1 解决：互斥锁：</h4><p>redis利用互斥锁，当热点Key过期时查询缓存，让第一个访问的线程获取这把锁，然后只让他一个人去数据库中查，查完再添加到缓存中，更新完毕后就释放锁。而在此之间，其他线程查询缓存时获取锁会失败，会让他睡一下，再重新查询缓存，知道缓存被更新就能继续工作了。</p>
+<p><img src="/typora-user-images%5Cimage-20230515223525299.png" alt="image-20230515223525299"></p>
+<h4 id="2-1-解决：逻辑过期："><a href="#2-1-解决：逻辑过期：" class="headerlink" title="2.1 解决：逻辑过期："></a>2.1 解决：逻辑过期：</h4><p>查询时判断逻辑过期时间是否过期，若过期像互斥锁一样流程，其他线程查询时得不到锁，返回逻辑过期的数据</p>
+<p><img src="/typora-user-images%5Cimage-20230515223739227.png" alt="image-20230515223739227"></p>
+<h2 id="3-缓存雪崩"><a href="#3-缓存雪崩" class="headerlink" title="3.缓存雪崩"></a>3.缓存雪崩</h2><p>和击穿不一样，击穿是一个热点key突然失效，雪崩是大量key突然失效</p>
+<p><img src="/typora-user-images%5Cimage-20230515224010005.png" alt="image-20230515224010005"></p>
+<p><img src="/typora-user-images%5Cimage-20230515224138894.png" alt="image-20230515224138894"></p>
+<h2 id="4-双写一致"><a href="#4-双写一致" class="headerlink" title="4.双写一致"></a>4.双写一致</h2><p><img src="/typora-user-images%5Cimage-20230515224325621.png" alt="image-20230515224325621"></p>
+<p><img src="/typora-user-images%5Cimage-20230515224341541.png" alt="image-20230515224341541"></p>
+<h1 id="高级篇"><a href="#高级篇" class="headerlink" title="高级篇"></a>高级篇</h1><h2 id="1-Redis持久化："><a href="#1-Redis持久化：" class="headerlink" title="1. Redis持久化："></a>1. Redis持久化：</h2><h3 id="1-1-RDB持久化："><a href="#1-1-RDB持久化：" class="headerlink" title="1.1 RDB持久化："></a>1.1 RDB持久化：</h3><p><img src="/typora-user-images%5Cimage-20230421144122561.png" alt="image-20230421144122561"></p>
+<p>sava会把内存的数据读取到磁盘中，但会阻塞当前进程</p>
+<p>bgsava会在后台条用fork开启一个子进程来执行读取到磁盘的操作</p>
+<h4 id="1-11-代码实验："><a href="#1-11-代码实验：" class="headerlink" title="1.11 代码实验："></a>1.11 代码实验：</h4><p>客户端存储一条信息</p>
+<p><img src="/typora-user-images%5Cimage-20230421144451309.png" alt="image-20230421144451309"></p>
+<p>然后停止Redis服务器后</p>
+<p><img src="/typora-user-images%5Cimage-20230421144756353.png" alt="image-20230421144756353"></p>
+<p>该信息已经被储存在磁盘中了</p>
+<p><img src="/typora-user-images%5Cimage-20230421145019790.png" alt="image-20230421145019790"></p>
+<p>重启服务器后，Redis再从磁盘中读取保存的数据</p>
+<p><img src="/typora-user-images%5Cimage-20230421144905039.png" alt="image-20230421144905039"></p>
+<p>再从客户端读取数据能读到之前保存的数据</p>
+<p><img src="/typora-user-images%5Cimage-20230421145103755.png" alt="image-20230421145103755"></p>
+<p>这个持久化只有在Redis正常停止时执行，若中途突然宕机了，那么之前保存的数据来不及读取到磁盘中，全部丢失！</p>
+<p>可以去修改Redis中的配置，实现自动保存到磁盘</p>
+<p><img src="/typora-user-images%5Cimage-20230421145424209.png" alt="image-20230421145424209"></p>
+<h4 id="1-12-bgsava原理："><a href="#1-12-bgsava原理：" class="headerlink" title="1.12 bgsava原理："></a>1.12 bgsava原理：</h4><p>主进程不能直接操作内存，它会有一张页表对应内存中的地址，通过页表中的地址去操作内存。</p>
+<p>fork就被把主进程复制一份，包括它的页表。两个进程的页表对应一个共同的物理内存。</p>
+<p>子进程会从物理内存中读取数据存入磁盘中</p>
+<p>copy-on-write技术：</p>
+<p>当子进程读取内存时，会把那片内存标记为read-only ，此时主进程无法写那边的内存。</p>
+<p>主进程会复制那片数据，然后操作复制的数据。从而会导致内存占用双倍。</p>
+<p><img src="/typora-user-images%5Cimage-20230421151135397.png" alt="image-20230421151135397"></p>
+<p><img src="/typora-user-images%5Cimage-20230421152408665.png" alt="image-20230421152408665"></p>
+<h3 id="1-2-AOF持久化："><a href="#1-2-AOF持久化：" class="headerlink" title="1.2 AOF持久化："></a>1.2 AOF持久化：</h3><p>AOF会把用户的操作全部存到磁盘中，重启服务器后Redis会从磁盘中读取数据，再把数据重新操作一次存入内存中</p>
+<p><img src="/typora-user-images%5Cimage-20230421152528897.png" alt="image-20230421152528897"></p>
+<p><img src="/typora-user-images%5Cimage-20230421152740363.png" alt="image-20230421152740363"></p>
+<p><img src="/typora-user-images%5Cimage-20230421152914985.png" alt="image-20230421152914985"></p>
+<p><img src="/typora-user-images%5Cimage-20230421152953076.png" alt="image-20230421152953076"></p>
+<h2 id="2-Redis主从结构："><a href="#2-Redis主从结构：" class="headerlink" title="2. Redis主从结构："></a>2. Redis主从结构：</h2><p><img src="/typora-user-images%5Cimage-20230421175606609.png" alt="image-20230421175606609"></p>
+<p>在本机开启三个Redis服务器</p>
+<p><img src="/typora-user-images%5Cimage-20230421175834140.png" alt="image-20230421175834140"></p>
+<p>进入7002端口的Redis服务器，使其变成7001端口服务器的从表</p>
+<p><img src="/typora-user-images%5Cimage-20230421175858027.png" alt="image-20230421175858027"></p>
+<p>7001服务器提示主从链接成功</p>
+<p><img src="/typora-user-images%5Cimage-20230421180015636.png" alt="image-20230421180015636"></p>
+<p>进入7003添加主表关系</p>
+<p><img src="/typora-user-images%5Cimage-20230421180125453.png" alt="image-20230421180125453"></p>
+<p>7001成功</p>
+<p><img src="/typora-user-images%5Cimage-20230421180152792.png" alt="image-20230421180152792"></p>
+<p>进入7001查看主从关系，master显示为主表，</p>
+<p>connected_slaves为有几个从表</p>
+<p><img src="/typora-user-images%5Cimage-20230421180229510.png" alt="image-20230421180229510"></p>
+<p>在7001做储存操作</p>
+<p><img src="/typora-user-images%5Cimage-20230421180344103.png" alt="image-20230421180344103"></p>
+<p>进入7003也能查询到</p>
+<p><img src="/typora-user-images%5Cimage-20230421180406452.png" alt="image-20230421180406452"></p>
+<p>在7003做写操作，则会报错，从表只能读不能写</p>
+<p><img src="/typora-user-images%5Cimage-20230421180436256.png" alt="image-20230421180436256"></p>
+<h3 id="2-1-数据同步原理"><a href="#2-1-数据同步原理" class="headerlink" title="2.1 数据同步原理"></a>2.1 数据同步原理</h3><p>在子进程2.1生成RDB文件时，master可能会产生新的读写操作，该新增的数据会被保存到repl_baklog中，在2.2 发送完RDB文件后，在第三阶段再发送repl_baklog文件，此时slave中的数据就是完整的数据</p>
+<p><img src="/typora-user-images%5Cimage-20230421180835122.png" alt="image-20230421180835122"></p>
+<p><img src="/typora-user-images%5Cimage-20230421181511905.png" alt="image-20230421181511905"></p>
+<h4 id="2-2-全量同步："><a href="#2-2-全量同步：" class="headerlink" title="2.2 全量同步："></a>2.2 全量同步：</h4><p>当从表像主表连接时，会发送自己的replid，主表此时会对比自己的replid，若两者不相等。说明是第一次进行连接，就会进行全量同步</p>
+<h4 id="2-3增量同步："><a href="#2-3增量同步：" class="headerlink" title="2.3增量同步："></a>2.3增量同步：</h4><p>当从表像主表连接时，若两者的replid一样，就会进行增量同步。会对比两者的offset，按照主表和从表的offset的差值给从表新增新的数据</p>
+<p><img src="/typora-user-images%5Cimage-20230421182501016.png" alt="image-20230421182501016"></p>
+<h2 id="3-Redis哨兵："><a href="#3-Redis哨兵：" class="headerlink" title="3. Redis哨兵："></a>3. Redis哨兵：</h2><p><img src="/typora-user-images%5Cimage-20230422003842985.png" alt="image-20230422003842985"></p>
+<p><img src="/typora-user-images%5Cimage-20230422003911810.png" alt="image-20230422003911810"></p>
+<p><img src="/typora-user-images%5Cimage-20230422003936031.png" alt="image-20230422003936031"></p>
+<p><img src="/typora-user-images%5Cimage-20230422003955076.png" alt="image-20230422003955076"></p>
+<h3 id="3-1-代码实现："><a href="#3-1-代码实现：" class="headerlink" title="3.1 代码实现："></a>3.1 代码实现：</h3><p>自己搜吧，懒得写了</p>
+<p>这是启动后的样子</p>
+<p>三个哨兵集群都监控主表，因为只要监控主表也能知道从表的情况</p>
+<p><img src="/typora-user-images%5Cimage-20230422014126204.png" alt="image-20230422014126204"></p>
+<p>当主表7001下线后，sentinel都出现如下日志，提示7001主观下线</p>
+<p><img src="/typora-user-images%5Cimage-20230422014443833.png" alt="image-20230422014443833"></p>
+<p>因为超过一半的哨兵集群都认为7001下线了，所以都出现客观下线的提示</p>
+<p><img src="/typora-user-images%5Cimage-20230422014529635.png" alt="image-20230422014529635"></p>
+<p>此时开始对7001实现故障转移</p>
+<p><img src="/typora-user-images%5Cimage-20230422014824451.png" alt="image-20230422014824451"></p>
+<p>开始选举一个新的主表</p>
+<p><img src="/typora-user-images%5Cimage-20230422014937930.png" alt="image-20230422014937930"></p>
+<p>此时选到7002作为新的主表</p>
+<p><img src="/typora-user-images%5Cimage-20230422015046109.png" alt="image-20230422015046109"></p>
+<p>然后对7002做 slaveOf-on one操作，解除7002的从表关系</p>
+<p><img src="/typora-user-images%5Cimage-20230422015125659.png" alt="image-20230422015125659"></p>
+<p>之前7002是从表的时候一直找不到主人，一直尝试连接，报错</p>
+<p><img src="/typora-user-images%5Cimage-20230422015243328.png" alt="image-20230422015243328"></p>
+<p>被选举为主表后执行的操作</p>
+<p><img src="/typora-user-images%5Cimage-20230422015337983.png" alt="image-20230422015337983"></p>
+<p>之后把7001重新设置为从表</p>
+<p><img src="/typora-user-images%5Cimage-20230422015501418.png" alt="image-20230422015501418"></p>
+<p>再把7003也设置为它的从表</p>
+<p><img src="/typora-user-images%5Cimage-20230422015541179.png" alt="image-20230422015541179"></p>
+<p>此时7001认7002做主</p>
+<p><img src="/typora-user-images%5Cimage-20230422015608398.png" alt="image-20230422015608398"></p>
+<p>然后重新做一次全量同步，不是增量同步哦</p>
+<p><img src="/typora-user-images%5Cimage-20230422015901782.png" alt="image-20230422015901782"></p>
+<h2 id="4-分片集群"><a href="#4-分片集群" class="headerlink" title="4.分片集群"></a>4.分片集群</h2><p><img src="/typora-user-images%5Cimage-20230423160300104.png" alt="image-20230423160300104"></p>
+<p>7001为主表，它的从表为8001，以此内推</p>
+<p><img src="/typora-user-images%5Cimage-20230423161902819.png" alt="image-20230423161902819"></p>
+<h3 id="4-1插槽"><a href="#4-1插槽" class="headerlink" title="4.1插槽"></a>4.1插槽</h3><p><img src="/typora-user-images%5Cimage-20230423161523762.png" alt="image-20230423161523762"></p>
+<h5 id="4-1-1-实现"><a href="#4-1-1-实现" class="headerlink" title="4.1.1 实现"></a>4.1.1 实现</h5><p>在7001set一个值num</p>
+<p><img src="/typora-user-images%5Cimage-20230423162935538.png" alt="image-20230423162935538"></p>
+<p>在set一个值 a  ，a 计算出的插槽值为15495，该值对应7003服务器，所以该set的值被重定向到7003服务器中</p>
+<p><img src="/typora-user-images%5Cimage-20230423163005686.png" alt="image-20230423163005686"></p>
+<p>在7003中get  a能找到</p>
+<p><img src="/typora-user-images%5Cimage-20230423163459036.png" alt="image-20230423163459036"></p>
+<p>在7003get num的值，计算出插槽值为2765，在7001中，所以重定向到7001中查找<img src="/typora-user-images%5Cimage-20230423163447761.png" alt="image-20230423163447761">·21</p>
+<p><img src="/typora-user-images%5Cimage-20230423163937131.png" alt="image-20230423163937131"></p>
+<h5 id="4-1-2-故障转移"><a href="#4-1-2-故障转移" class="headerlink" title="4.1.2 故障转移"></a>4.1.2 故障转移</h5><p><img src="/typora-user-images%5Cimage-20230423231746710.png" alt="image-20230423231746710"></p>
+<p><img src="/typora-user-images%5Cimage-20230423231908651.png" alt="image-20230423231908651"></p>
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    
+    
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis%EF%BC%9A"><span class="nav-number">1.</span> <span class="nav-text">Redis：</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F"><span class="nav-number">1.1.</span> <span class="nav-text">1. 缓存穿透</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-1-%E8%A7%A3%E5%86%B3%EF%BC%9A%E7%A9%BA%E5%80%BC%E5%AD%98%E5%82%A8"><span class="nav-number">1.1.0.1.</span> <span class="nav-text">1.1 解决：空值存储</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-2-%E8%A7%A3%E5%86%B3%EF%BC%9A%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8"><span class="nav-number">1.1.0.2.</span> <span class="nav-text">1.2 解决：布隆过滤器</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF"><span class="nav-number">1.2.</span> <span class="nav-text">2.缓存击穿</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-%E8%A7%A3%E5%86%B3%EF%BC%9A%E4%BA%92%E6%96%A5%E9%94%81%EF%BC%9A"><span class="nav-number">1.2.0.1.</span> <span class="nav-text">2.1 解决：互斥锁：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-%E8%A7%A3%E5%86%B3%EF%BC%9A%E9%80%BB%E8%BE%91%E8%BF%87%E6%9C%9F%EF%BC%9A"><span class="nav-number">1.2.0.2.</span> <span class="nav-text">2.1 解决：逻辑过期：</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9"><span class="nav-number">1.3.</span> <span class="nav-text">3.缓存雪崩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%8F%8C%E5%86%99%E4%B8%80%E8%87%B4"><span class="nav-number">1.4.</span> <span class="nav-text">4.双写一致</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%AB%98%E7%BA%A7%E7%AF%87"><span class="nav-number">2.</span> <span class="nav-text">高级篇</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Redis%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%9A"><span class="nav-number">2.1.</span> <span class="nav-text">1. Redis持久化：</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-RDB%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%9A"><span class="nav-number">2.1.1.</span> <span class="nav-text">1.1 RDB持久化：</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-11-%E4%BB%A3%E7%A0%81%E5%AE%9E%E9%AA%8C%EF%BC%9A"><span class="nav-number">2.1.1.1.</span> <span class="nav-text">1.11 代码实验：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-12-bgsava%E5%8E%9F%E7%90%86%EF%BC%9A"><span class="nav-number">2.1.1.2.</span> <span class="nav-text">1.12 bgsava原理：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-AOF%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%9A"><span class="nav-number">2.1.2.</span> <span class="nav-text">1.2 AOF持久化：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-Redis%E4%B8%BB%E4%BB%8E%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="nav-number">2.2.</span> <span class="nav-text">2. Redis主从结构：</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E5%8E%9F%E7%90%86"><span class="nav-number">2.2.1.</span> <span class="nav-text">2.1 数据同步原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-%E5%85%A8%E9%87%8F%E5%90%8C%E6%AD%A5%EF%BC%9A"><span class="nav-number">2.2.1.1.</span> <span class="nav-text">2.2 全量同步：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3%E5%A2%9E%E9%87%8F%E5%90%8C%E6%AD%A5%EF%BC%9A"><span class="nav-number">2.2.1.2.</span> <span class="nav-text">2.3增量同步：</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-Redis%E5%93%A8%E5%85%B5%EF%BC%9A"><span class="nav-number">2.3.</span> <span class="nav-text">3. Redis哨兵：</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0%EF%BC%9A"><span class="nav-number">2.3.1.</span> <span class="nav-text">3.1 代码实现：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%88%86%E7%89%87%E9%9B%86%E7%BE%A4"><span class="nav-number">2.4.</span> <span class="nav-text">4.分片集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1%E6%8F%92%E6%A7%BD"><span class="nav-number">2.4.1.</span> <span class="nav-text">4.1插槽</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#4-1-1-%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.4.1.0.1.</span> <span class="nav-text">4.1.1 实现</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-1-2-%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB"><span class="nav-number">2.4.1.0.2.</span> <span class="nav-text">4.1.2 故障转移</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="邓鑫"
+      src="/images/xiaopeng.jpg">
+  <p class="site-author-name" itemprop="name">邓鑫</p>
+  <div class="site-description" itemprop="description">选择有时候比努力更重要</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">邓鑫</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
